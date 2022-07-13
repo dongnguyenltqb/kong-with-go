@@ -1,35 +1,13 @@
 version: "3.9"
 services:
-  db:
-    image: postgres:13
-    networks:
-      - kong
-    restart: always
-    volumes:
-      - db_data:/var/lib/postgres/data
-    environment:
-      - POSTGRES_USER=docker
-      - POSTGRES_PASSWORD=docker
-      - POSTGRES_DB=kong
-      - PGDATA=/var/lib/postgresql/data/pgdata
-      - KONG_DECLARATIVE_CONFIG=/home/kong/kong.yml
-  # migration:
-  #   image: kong:latest
-  #   command: kong migrations bootstrap
-  #   networks:
-  #     - kong
-  #   environment:
-  #     - KONG_DATABASE=postgres
-  #     - KONG_PG_HOST=db
-  #     - KONG_PG_USER=docker
-  #     - KONG_PG_PASSWORD=docker
-
   # :8000: Port on which listens for incoming HTTP traffic from your clients, and forwards it to your upstream services.
   # :8443: Port on which listens for incoming HTTPS traffic. This port has similar behavior as the :8000 port, except that it expects HTTPS traffic only. This port can be disabled with the kong.conf configuration file.
   # :8001: Port on which the Admin API used to configure listens.
   # :8444: Port on which the Admin API listens for HTTPS traffic.
   kong:
-    image: kong:latest
+    build:
+      context: key-checker
+      dockerfile: Dockerfile
     networks:
       - kong
     environment:
@@ -43,11 +21,58 @@ services:
       - KONG_PROXY_ERROR_LOG=/dev/stderr
       - KONG_ADMIN_ERROR_LOG=/dev/stderr
 
-      - KONG_ADMIN_LISTEN=0.0.0.0:8001
-      - KONG_PROXY_LISTEN=0.0.0.0:8000
+      - KONG_PROXY_LISTEN=0.0.0.0:7001
+      - KONG_ADMIN_LISTEN=0.0.0.0:7002
+
+      - KONG_PLUGINSERVER_NAMES=key-checker
+      - KONG_PLUGINSERVER_KEY_CHECKER_QUERY_CMD=key-checker --dump
+      - KONG_PLUGINS=bundled,key-checker
     ports:
-      - 8000:8000
-      - 8001:8001
+      - 7001:7001
+      - 7002:7002
+  db:
+    image: postgres:13
+    networks:
+      - kong
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgres/data
+    environment:
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+      - POSTGRES_DB=kong
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - KONG_DECLARATIVE_CONFIG=/home/kong/kong.yml
+    ports:
+      - 7005:5432
+  migration:
+    image: kong:latest
+    command: kong migrations bootstrap
+    networks:
+      - kong
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=db
+      - KONG_PG_USER=docker
+      - KONG_PG_PASSWORD=docker
+  ui:
+    image: pantsel/konga
+    networks:
+      - kong
+    environment:
+      - HOST=0.0.0.0
+      - PORT=7000
+      - NODE_ENV=production
+      - DB_ADAPTER=mongo
+      - DB_URI=mongodb://docker:docker@mongo:27017
+      - NO_AUTH=false
+    ports:
+      - 7000:7000
+  ui_migration:
+    image: pantsel/konga
+    networks:
+      - kong
+    command: -c prepare -a mongo -u "mongodb://docker:docker@mongo:27017"
   mongo:
     image: mongo:4.2
     networks:
@@ -59,24 +84,6 @@ services:
     volumes:
       - db_ui_mongo_data:/data/db"
 
-  # ui_migration:
-  #   image: pantsel/konga
-  #   networks:
-  #     - kong
-  #   command: -c prepare -a mongo -u "mongodb://docker:docker@mongo:27017"
-  ui:
-    image: pantsel/konga
-    networks:
-      - kong
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8002
-      - NODE_ENV=production
-      - DB_ADAPTER=mongo
-      - DB_URI=mongodb://docker:docker@mongo:27017
-      - NO_AUTH=false
-    ports:
-      - 8002:8002
   echo:
     image: ealen/echo-server
     networks:
