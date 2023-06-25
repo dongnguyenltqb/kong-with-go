@@ -1,0 +1,38 @@
+_format_version: "3.0"
+_transform: true
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - HEAD
+        - PUT
+        - PATCH
+        - POST
+        - DELETE
+        - OPTIONS
+        - TRACE
+        - CONNECT
+      headers:
+        - "*"
+      exposed_headers:
+        - "*"
+      credentials: true
+      max_age: 3600
+services:
+  - name: echo
+    host: echo
+    port: 3000
+    protocol: http
+    plugins:
+      - name: path-prefix
+        config:
+          prefix: /user-management
+    routes:
+      - name: echo
+        preserve_host: true
+        path_handling: v1
+        paths:
+          - /
