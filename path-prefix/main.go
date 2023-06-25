@@ -24,5 +24,4 @@ func New() interface{} {
 
 func (conf Config) Access(kong *pdk.PDK) {
 	kong.Log.Info(fmt.Sprintf("<path-prefix> <%s>", conf.Prefix))
-	kong.Nginx.SetCtx("ngx.var.upstream_x_forwarded_prefix", conf.Prefix)
 }
